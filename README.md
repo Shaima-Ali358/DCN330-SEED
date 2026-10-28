@@ -243,3 +243,202 @@ sudo docker exec hostA-10.9.0.5 ping -c 5 10.9.0.6
 ```
 sudo docker exec hostA-10.9.0.5 ping -c 5 10.9.0.6
 ```
+
+
+```
+cd ~/Desktop
+nano filter2.py
+
+
+
+#!/usr/bin/env python3
+from scapy.all import *
+
+def print_pkt(pkt):
+    pkt.show()
+
+pkt = sniff(
+    iface="br-6f5122c1b8fa",
+    filter="tcp and src host 10.9.0.5 and dst port 23",
+    prn=print_pkt
+)
+
+
+
+chmod a+x filter2.py
+sudo ./filter2.py
+
+
+
+sudo docker exec -it hostA-10.9.0.5 /bin/bash
+
+
+telnet 10.9.0.6 23
+
+apt-get update
+apt-get install -y telnet
+telnet 10.9.0.6 23
+
+
+
+
+cd ~/Desktop
+nano filter3.py
+
+#!/usr/bin/env python3
+from scapy.all import *
+
+def print_pkt(pkt):
+    pkt.show()
+
+pkt = sniff(
+    iface="br-6f5122c1b8fa",
+    filter="net 128.230.0.0/16",
+    prn=print_pkt
+)
+
+chmod a+x filter3.py
+sudo ./filter3.py
+
+
+sudo docker exec -it hostA-10.9.0.5 /bin/bash
+
+
+ping -c 5 -W 2 128.230.0.1
+
+
+cd ~/Desktop
+nano spoof.py
+
+
+#!/usr/bin/env python3
+from scapy.all import *
+
+# Create an IP packet with a fake source IP
+a = IP()
+a.dst = '10.9.0.5'
+a.src = '1.2.3.4'
+
+# Create an ICMP Echo Request
+b = ICMP()
+
+# Combine and send the packet
+p = a/b
+send(p)
+
+chmod a+x spoof.py
+sudo ./spoof.py
+
+
+
+
+cd ~/Desktop
+nano traceroute.py
+
+
+
+
+#!/usr/bin/env python3
+from scapy.all import *
+
+target = '8.8.8.8'
+
+for ttl in range(1, 16):
+
+    # Create IP packet with increasing TTL
+    a = IP(dst=target, ttl=ttl)
+    b = ICMP()
+
+    # Send packet and wait for a reply
+    reply = sr1(a/b, verbose=0, timeout=2)
+
+    if reply is None:
+        print(f"{ttl}: * * * (No response)")
+    else:
+        # Print the IP of the router that replied
+        print(f"{ttl}: {reply.src}")
+
+        # Stop when destination sends Echo Reply
+        if reply.haslayer(ICMP) and reply[ICMP].type == 0:
+            print("Reached destination!")
+            break
+
+
+chmod a+x traceroute.py
+sudo ./traceroute.py
+
+
+
+
+
+Step 1 — إنشاء الملف
+افتحي Terminal العادي في Ubuntu واكتبي:
+cd ~/Desktop
+nano sniff_spoof.py
+
+
+انسخي الكود كامل:
+#!/usr/bin/env python3from scapy.all import *def spoof_pkt(pkt):    if IP in pkt and ICMP in pkt and pkt[ICMP].type == 8:        src = pkt[IP].src        dst = pkt[IP].dst        print(f"Sniffed ICMP request: {src} -> {dst}")        ip = IP(src=dst, dst=src)        icmp = ICMP(            type=0,            id=pkt[ICMP].id,            seq=pkt[ICMP].seq        )        reply = ip / icmp / bytes(pkt[ICMP].payload)        send(reply, verbose=0)        print(f"Spoofed reply sent to {src} from {dst}")sniff(    iface="br-6f5122c1b8fa",    filter="icmp",    prn=spoof_pkt,    store=False)
+
+
+
+احفظي بـ Ctrl+O ثم Enter ثم Ctrl+X.
+Step 2 — تشغيل البرنامج
+في نفس Terminal:
+chmod a+x sniff_spoof.py
+sudo ./sniff_spoof.py
+
+
+خليه شغال ولا تقفلينه.
+Step 3 — افتحي Terminal ثاني وادخلي Host A
+sudo docker exec -it hostA-10.9.0.5 /bin/bash
+
+
+المفروض يتغير السطر إلى root@...:/#.
+Step 4 — الاختبار الأول: 1.2.3.4
+داخل Host A:
+ping -c 4 -W 2 1.2.3.4
+
+
+ارجعي للـTerminal الأول وشوفي هل ظهرت رسائل Sniffed ICMP request وSpoofed reply sent.
+
+📸 Screenshot 1 — Ping 1.2.3.4: صوري نتيجة الـPing، وصورة ثانية للـSniffer إذا ظهرت الرسائل.
+Step 5 — الاختبار الثاني: 10.9.0.99
+في نفس Terminal الخاص بـHost A:
+ping -c 4 -W 2 10.9.0.99
+
+
+هذا عنوان داخل نفس الشبكة لكنه غير مستخدم في اللاب.
+
+ممكن يظهر:
+Destination Host Unreachable
+
+
+وهذا متوقع لأن Host A يحاول معرفة عنوان MAC باستخدام ARP، وإذا ما فيه جهاز يرد على ARP، ما يقدر يرسل ICMP Echo Request.
+
+📸 Screenshot 2 — Ping 10.9.0.99: صوري النتيجة حتى لو فشلت.
+Step 6 — الاختبار الثالث: 8.8.8.8
+داخل Host A:
+ping -c 4 -W 2 8.8.8.8
+
+
+ارجعي للـTerminal الأول وراقبي الرسائل.
+
+قد تشوفين ردود حقيقية أو مزيفة، حسب إعدادات الشبكة واتصال الإنترنت.
+
+📸 Screenshot 3 — Ping 8.8.8.8: صوري نتيجة الـPing والرسائل اللي ظهرت في برنامج sniff_spoof.py.
+Step 7 — اختبار Routing وARP
+داخل Host A نفذي هذه الأوامر:
+ip route
+ip route get 1.2.3.4
+ip route get 10.9.0.99
+ip route get 8.8.8.8
+ip neigh show
+
+
+
+icmp && ip.addr == 1.2.3.4
+
+cd ~/Desktop
+sudo ./spoof.py
+
