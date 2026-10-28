@@ -1,7 +1,3 @@
-# DCN330-SEED
-DCN SEED LAB 2B COMMANDS
-
-
 DCN320 — Lab 2B: Packet Sniffing & Spoofing
 Student: REPLACE_WITH_YOUR_NAME
 Date: Run date +%F inside the SEED VM and enter the date.
