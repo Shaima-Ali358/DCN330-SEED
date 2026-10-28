@@ -441,4 +441,35 @@ icmp && ip.addr == 1.2.3.4
 
 cd ~/Desktop
 sudo ./spoof.py
+```
+```
+#!/usr/bin/env python3
+from scapy.all import *
+
+def spoof_pkt(pkt):
+    if IP in pkt and ICMP in pkt and pkt[ICMP].type == 8:
+        src = pkt[IP].src
+        dst = pkt[IP].dst
+
+        print(f"Sniffed ICMP request: {src} -> {dst}")
+
+        ip = IP(src=dst, dst=src)
+        icmp = ICMP(
+            type=0,
+            id=pkt[ICMP].id,
+            seq=pkt[ICMP].seq
+        )
+
+        reply = ip / icmp / bytes(pkt[ICMP].payload)
+
+        send(reply, verbose=0)
+        print(f"Spoofed reply sent to {src} from {dst}")
+
+sniff(
+    iface="br-6f5122c1b8fa",
+    filter="icmp",
+    prn=spoof_pkt,
+    store=False
+)
+```
 
