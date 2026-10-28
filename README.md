@@ -207,3 +207,39 @@ sniff(
     store=False
 )
 ```
+
+
+
+
+```
+cd ~/Desktop
+nano filter1.py
+```
+```
+#!/usr/bin/env python3
+from scapy.all import *
+
+def print_pkt(pkt):
+    pkt.show()
+
+pkt = sniff(
+    iface="br-6f5122c1b8fa",
+    filter="icmp",
+    prn=print_pkt
+)
+```
+
+
+```
+chmod a+x filter1.py
+sudo ./filter1.py
+```
+
+```
+sudo docker exec hostA-10.9.0.5 ping -c 5 10.9.0.6
+```
+
+
+```
+sudo docker exec hostA-10.9.0.5 ping -c 5 10.9.0.6
+```
