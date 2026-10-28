@@ -190,3 +190,20 @@ Paste the actual terminal output, not sample output.
 Add screenshots immediately after each relevant section or in a labeled appendix.
 Include code snippets and short, simple-English explanations.
 Verify screenshots show the correct lab VM, command, and result.
+
+```
+#!/usr/bin/env python3
+
+from scapy.all import sniff, ICMP
+
+def print_packet(pkt):
+    if pkt.haslayer(ICMP):
+        pkt.show()
+
+sniff(
+    iface="br-6f5122c1b8fa",
+    filter="icmp",
+    prn=print_packet,
+    store=False
+)
+```
