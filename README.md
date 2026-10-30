@@ -384,4 +384,6 @@ Persistence	ناقصة (مطلوبة)
 CSV export	ناقصة (مطلوبة)
 John Strand lab	ناقصة (لاحقاً)
 
-نفذي Step 1 و 2 وأرسلي لي النتيجة (أو الخطأ) لو ظهر شي.:
+نفذي Step 1 و 2 وأرسلي لي النتيجة (أو الخطأ) لو ظهر شي
+
+https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com.
