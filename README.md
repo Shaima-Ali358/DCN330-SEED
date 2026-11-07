@@ -209,3 +209,13 @@ Start-Process explorer.exe
 Start-Process notepad.exe
 Start-Process ms-settings:
 ```
+```bash
+Get-WinEvent -FilterHashtable @{
+    LogName = 'Microsoft-Windows-Sysmon/Operational'
+    Id = 3
+} -MaxEvents 5 -ErrorAction SilentlyContinue |
+Format-List TimeCreated, Id, Message
+
+
+
+```
