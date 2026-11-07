@@ -145,3 +145,23 @@ Select-Object RuleCollectionType, EnforcementMode
 وجربي فتح البرامج مرة ثانية.
 
 مهم بالنسبة للـAssignment
+
+
+```
+$logs = @(
+    'Microsoft-Windows-AppLocker/EXE and DLL',
+    'Microsoft-Windows-AppLocker/Packaged app-Execution',
+    'Microsoft-Windows-CodeIntegrity/Operational'
+)
+
+foreach ($log in $logs) {
+    Write-Host "`nChecking: $log" -ForegroundColor Cyan
+
+    Get-WinEvent -LogName $log -MaxEvents 100 -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.Id -in @(8003,8004,8022,8025,3076,3077)
+    } |
+    Select-Object -First 10 TimeCreated, Id, Message |
+    Format-List
+}
+```
