@@ -165,3 +165,47 @@ foreach ($log in $logs) {
     Format-List
 }
 ```
+
+
+```
+New-Item -ItemType Directory -Path "C:\Tools" -Force
+
+Get-AppLockerPolicy -Local -Xml |
+Out-File "C:\Tools\AppLocker-Backup.xml" -Encoding UTF8
+```
+
+```
+$policy = Get-AppLockerPolicy -Local
+
+foreach ($collection in $policy.RuleCollections) {
+    $collection.EnforcementMode = 'AuditOnly'
+}
+
+Set-AppLockerPolicy -PolicyObject $policy
+```
+
+```
+(Get-AppLockerPolicy -Local).RuleCollections |
+Select-Object RuleCollectionType, EnforcementMode
+```
+
+```
+ipconfig /flushdns
+w32tm /resync
+gpupdate /force
+```
+```
+gpmc.msc
+```
+```
+Restart-Computer
+```
+```
+(Get-AppLockerPolicy -Effective).RuleCollections |
+Select-Object RuleCollectionType, EnforcementMode
+```
+```
+Start-Process explorer.exe
+Start-Process notepad.exe
+Start-Process ms-settings:
+```
