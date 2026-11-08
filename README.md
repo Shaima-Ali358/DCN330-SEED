@@ -1,229 +1,16 @@
-تمام، بعطيك الحل كامل دفعة وحدة عشان نصلح CLIENT01 ونرجع نكمل Assignment 2 في SPR320 بدون ما نضيع وقت.
-
-من آخر صورة عندك عرفنا إن:
-- عندك 3 قواعد Executable في AppLocker.
-- كل الـRule Collections تظهر NotConfigured.
-- بعض البرامج كانت محظورة.
-- gpupdate /force فشل في Computer Policy.
-- الاتصال بين DC01 وCLIENT01 اشتغل على Port 445.
-المشكلة غالبًا من AppLocker أو Group Policy، مو من Windows Firewall. وبما إننا ما تأكدنا من مصدر الحظر، بنفحصه ونصلحه بطريقة تحافظ على إعدادات اللاب.
-Part 1 — إصلاح AppLocker على CLIENT01
-افتحي PowerShell بصلاحية Administrator.
-Step 1 — احفظي نسخة من إعدادات AppLocker
-نفذي:
-New-Item -Path "C:\Tools" -ItemType Directory -Force
-
-Get-AppLockerPolicy -Local -Xml |
-Out-File "C:\Tools\AppLocker-Backup.xml" -Encoding UTF8
-
-
-هذا يحفظ نسخة من القواعد المحلية قبل التعديل.
-Step 2 — افحصي القواعد الثلاث
-Get-AppLockerPolicy -Effective |
-Select-Object -ExpandProperty RuleCollections |
-Where-Object { $_.RuleCollectionType -eq 'Exe' } |
-Select-Object -ExpandProperty Rules |
-Format-List Name, Action, UserOrGroupSid
-
-
-إذا ظهرت قواعد Allow فقط، لا تحذفينها. هذه غالبًا القواعد الافتراضية التي تسمح بتشغيل البرامج من Windows وProgram Files.
-Step 3 — افحصي سجل الحظر
-نفذي:
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-AppLocker/EXE and DLL'
-    Id = 8003,8004
-} -MaxEvents 15 -ErrorAction SilentlyContinue |
-Format-List TimeCreated, Id, Message
-
-
-- Event 8004 يعني أن AppLocker منع تشغيل برنامج.
-- Event 8003 يعني أن البرنامج كان سيُمنع لو كانت القواعد في وضع Enforce، لكنه سُمح له بالعمل في وضع Audit.
-إذا ما ظهرت نتائج، هذا لا يثبت أن AppLocker ليس السبب؛ ممكن يكون الحظر من سياسة ثانية.
-Part 2 — تحويل AppLocker إلى Audit Only
-بما إن الدكتور طالب AppLocker في اللاب، الأفضل نخلي القواعد موجودة، لكن نوقف منع البرامج مؤقتًا.
-
-افتحي نافذة Local Security Policy باستخدام:
-secpol.msc
-
-
-ثم روحي إلى:
-
-Application Control Policies → AppLocker → Properties
-
-اضبطي التالي:
-Rule collection	Setting
-Executable rules	Audit only
-Windows Installer rules	Audit only
-Script rules	Audit only
-Packaged app Rules	Audit only
-
-اضغطي Apply ثم OK.
-
-بعدها نفذي:
-Get-AppLockerPolicy -Local |
-Select-Object -ExpandProperty RuleCollections |
-Select-Object RuleCollectionType, EnforcementMode
-
-
-ملاحظة: لو بقيت بعض القواعد NotConfigured، هذا لا يثبت أنها معطلة. نحتاج نتأكد من الـEffective Policy ومن سجل الأحداث.
-Part 3 — إصلاح Group Policy
-على CLIENT01 نفذي:
-Test-NetConnection 192.168.56.10 -Port 445
-
-
-ثم:
-Test-NetConnection 192.168.56.10 -Port 389
-
-
-ثم:
-Test-NetConnection 192.168.56.10 -Port 88
-
-
-المفروض يظهر:
-TcpTestSucceeded : True
-
-
-إذا فشل أحدها، راجعي الاتصال أو الخدمات على DC01 قبل تحديث السياسات.
-
-بعدها افحصي DNS:
-Get-DnsClientServerAddress -AddressFamily IPv4
-
-
-المفروض DNS الخاص بـCLIENT01 يشير إلى:
-192.168.56.10
-
-
-إذا كان مختلفًا، وكان اسم كرت الشبكة Ethernet، نفذي:
-Set-DnsClientServerAddress -InterfaceAlias "Ethernet" -ServerAddresses 192.168.56.10
-
-
-ثم:
-ipconfig /flushdns
-
-
-وجربي:
-nslookup spr320.test
-
-
-بعد التأكد من الاتصال وDNS:
-w32tm /resync /rediscover
-gpupdate /force
-
-
-إذا استمر فشل Computer Policy، نفذي:
-gpresult /h "C:\Tools\GPReport.html"
-
-
-وافتحي التقرير لمعرفة السياسات المطبقة والأخطاء.
-Part 4 — اختبار البرامج
-جربي هذه الأوامر على CLIENT01:
-Start-Process explorer.exe
-
-
-Start-Process notepad.exe
-
-
-Start-Process ms-settings:
-
-
-وجربي Start Menu أيضًا.
-
-إذا اشتغلت البرامج بدون رسالة الحظر، نقدر نكمل اللاب.
-
-إذا استمر الحظر، افحصي سجل AppLocker مرة ثانية، وكذلك Software Restriction Policies، بدل حذف القواعد أو تعطيل خدمات الحماية عشوائيًا.
-Part 5 — إعادة تشغيل CLIENT01
-بعد ما تتأكدين أن الإعدادات محفوظة:
-Restart-Computer
-
-
-بعد إعادة التشغيل، افحصي:
-Get-AppLockerPolicy -Effective |
-Select-Object -ExpandProperty RuleCollections |
-Select-Object RuleCollectionType, EnforcementMode
-
-
-وجربي فتح البرامج مرة ثانية.
-
-مهم بالنسبة للـAssignment
-
-
 ```
-$logs = @(
-    'Microsoft-Windows-AppLocker/EXE and DLL',
-    'Microsoft-Windows-AppLocker/Packaged app-Execution',
-    'Microsoft-Windows-CodeIntegrity/Operational'
-)
-
-foreach ($log in $logs) {
-    Write-Host "`nChecking: $log" -ForegroundColor Cyan
-
-    Get-WinEvent -LogName $log -MaxEvents 100 -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.Id -in @(8003,8004,8022,8025,3076,3077)
-    } |
-    Select-Object -First 10 TimeCreated, Id, Message |
-    Format-List
-}
-```
-
-
-```
-New-Item -ItemType Directory -Path "C:\Tools" -Force
-
-Get-AppLockerPolicy -Local -Xml |
-Out-File "C:\Tools\AppLocker-Backup.xml" -Encoding UTF8
+New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "SysmonLabTest" -Value "C:\Windows\System32\notepad.exe" -PropertyType String -Force
 ```
 
 ```
-$policy = Get-AppLockerPolicy -Local
-
-foreach ($collection in $policy.RuleCollections) {
-    $collection.EnforcementMode = 'AuditOnly'
-}
-
-Set-AppLockerPolicy -PolicyObject $policy
-```
-
-```
-(Get-AppLockerPolicy -Local).RuleCollections |
-Select-Object RuleCollectionType, EnforcementMode
-```
-
-```
-ipconfig /flushdns
-w32tm /resync
-gpupdate /force
-```
-```
-gpmc.msc
-```
-```
-Restart-Computer
-```
-```
-(Get-AppLockerPolicy -Effective).RuleCollections |
-Select-Object RuleCollectionType, EnforcementMode
-```
-```
-Start-Process explorer.exe
-Start-Process notepad.exe
-Start-Process ms-settings:
-```
-```bash
 Get-WinEvent -FilterHashtable @{
     LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 3
-} -MaxEvents 5 -ErrorAction SilentlyContinue |
+    Id = 13
+} -MaxEvents 100 |
+Where-Object { $_.Message -match 'SysmonLabTest' } |
 Format-List TimeCreated, Id, Message
-
-
-
 ```
 
-إذا ظهر SysmonLabTest مع Event ID 13:
-الآن خذي Screenshot — Registry Persistence Detection
-
-3. إنشاء Scheduled Task تجريبية
 ```
 $action = New-ScheduledTaskAction -Execute "notepad.exe"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
@@ -231,20 +18,14 @@ $trigger = New-ScheduledTaskTrigger -AtLogOn
 Register-ScheduledTask -TaskName "SysmonLabTask" -Action $action -Trigger $trigger -Description "SPR320 Sysmon Persistence Test"
 ```
 
-
-4. التحقق من المهمة
 ```
 Get-ScheduledTask -TaskName "SysmonLabTask" |
 Format-List TaskName, State, TaskPath
+
 ```
 
+```
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "SysmonLabTest"
 
-الآن خذي Screenshot — Scheduled Task Persistence Test
-
-5. تنظيف الاختبارات بعد التصوير
-```Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "SysmonLabTest"```
-
-```Unregister-ScheduledTask -TaskName "SysmonLabTask" -Confirm:$false```
-
-
-هذه الاختبارات آمنة داخل مختبرك المعزول، والمهمة المجدولة لن تشغّل Notepad إلا عند تسجيل الدخول.
+Unregister-ScheduledTask -TaskName "SysmonLabTask" -Confirm:$false
+```
