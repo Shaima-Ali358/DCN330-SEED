@@ -219,3 +219,32 @@ Format-List TimeCreated, Id, Message
 
 
 ```
+
+إذا ظهر SysmonLabTest مع Event ID 13:
+الآن خذي Screenshot — Registry Persistence Detection
+
+3. إنشاء Scheduled Task تجريبية
+```
+$action = New-ScheduledTaskAction -Execute "notepad.exe"
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+
+Register-ScheduledTask -TaskName "SysmonLabTask" -Action $action -Trigger $trigger -Description "SPR320 Sysmon Persistence Test"
+```
+
+
+4. التحقق من المهمة
+```
+Get-ScheduledTask -TaskName "SysmonLabTask" |
+Format-List TaskName, State, TaskPath
+```
+
+
+الآن خذي Screenshot — Scheduled Task Persistence Test
+
+5. تنظيف الاختبارات بعد التصوير
+```Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "SysmonLabTest"```
+
+```Unregister-ScheduledTask -TaskName "SysmonLabTask" -Confirm:$false```
+
+
+هذه الاختبارات آمنة داخل مختبرك المعزول، والمهمة المجدولة لن تشغّل Notepad إلا عند تسجيل الدخول.
