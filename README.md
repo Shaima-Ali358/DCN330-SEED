@@ -1,31 +1,23 @@
-```
-New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "SysmonLabTest" -Value "C:\Windows\System32\notepad.exe" -PropertyType String -Force
-```
+نفذي على DC01:
+```Unregister-ScheduledTask -TaskName "SysmonLabTask" -Confirm:$false```
 
+
+بعدها نصدّر أحداث Sysmon إلى CSV:
 ```
+New-Item -Path "C:\Tools" -ItemType Directory -Force
+
 Get-WinEvent -FilterHashtable @{
     LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 13
-} -MaxEvents 100 |
-Where-Object { $_.Message -match 'SysmonLabTest' } |
-Format-List TimeCreated, Id, Message
+    StartTime = (Get-Date).AddDays(-2)
+} | Select-Object TimeCreated, Id, ProviderName, Message |
+Export-Csv -Path "C:\Tools\SysmonEvents.csv" -NoTypeInformation -Encoding UTF8
 ```
 
+نتأكد من الملف:
 ```
-$action = New-ScheduledTaskAction -Execute "notepad.exe"
-$trigger = New-ScheduledTaskTrigger -AtLogOn
+Get-Item "C:\Tools\SysmonEvents.csv"
 
-Register-ScheduledTask -TaskName "SysmonLabTask" -Action $action -Trigger $trigger -Description "SPR320 Sysmon Persistence Test"
-```
-
-```
-Get-ScheduledTask -TaskName "SysmonLabTask" |
-Format-List TaskName, State, TaskPath
-
-```
-
-```
-Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "SysmonLabTest"
-
-Unregister-ScheduledTask -TaskName "SysmonLabTask" -Confirm:$false
+Import-Csv "C:\Tools\SysmonEvents.csv" |
+Select-Object -First 5 TimeCreated, Id, ProviderName |
+Format-Table -AutoSize
 ```
