@@ -1,64 +1,40 @@
-Step 1 — Registry Parser
-افتحي PowerShell كـ Administrator على DC01، وانسخي الأوامر:
+افتحي PowerShell كـ Administrator على DC01 ونفذي:
 ```
-$events = Import-Csv "C:\Tools\SysmonEvents.csv"
+cd "C:\Users\Administrator\Downloads\Sysmon"
 
-$events |
-Where-Object { $_.Id -in @('12','13','14') } |
-Select-Object -First 10 TimeCreated, Id, Message |
-Format-List
+Copy-Item ".\sysmonconfig-export.xml" "C:\Tools\SysmonConfig-Backup.xml"
+
+Test-Path "C:\Tools\SysmonConfig-Backup.xml"
+
 ```
+المفروض النتيجة:
+True
 
-هذا يبحث عن أحداث Registry داخل ملف CSV.
 
-إذا ما ظهرت نتائج، نفذي البديل المباشر من Sysmon:
+Step 2 — Download Olaf Hartong Configuration
+بما أن DC01 عندك على Internal Network، افتحي الرابط من جهازك الأساسي أو من VM فيها إنترنت:
+
 ```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 12,13,14
-} -MaxEvents 10 |
-Format-List TimeCreated, Id, Message
+https://github.com/olafhartong/sysmon-modular
 ```
 
-📸 Screenshot Required — Registry Events
+حمّلي ملف sysmonconfig.xml الجاهز من المشروع، ثم انقليه إلى مجلد Sysmon داخل DC01.
+Step 3 — Apply Configuration
+بعد ما تتأكدين إن الملف موجود في نفس المجلد، نفذي:
+```Test-Path ".\sysmonconfig.xml"```
 
-خذي لقطة شاشة إذا ظهرت أحداث Registry، ويفضل Event ID 13.
 
-عنوان الصورة:```
-Parsing Sysmon Registry Events
-Step 2 — Scheduled Task Parser
-نفذي:
-```
-Get-ScheduledTask -TaskName "SysmonLabTask" -ErrorAction SilentlyContinue |
-Format-List TaskName, State, TaskPath
-```
-
-إذا ما ظهرت نتيجة لأنك حذفتي المهمة سابقاً، أنشئي مهمة تجريبية:
-```
-$action = New-ScheduledTaskAction -Execute "notepad.exe"
-
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-
-Register-ScheduledTask -TaskName "SysmonLabTask" -Action $action -Trigger $trigger -Description "SPR320 Sysmon Lab Test"
-```
+إذا ظهرت True، نفذي:
+```.\Sysmon64.exe -c ".\sysmonconfig.xml"```
 
 
 ثم تحققي:
-```
-Get-ScheduledTask -TaskName "SysmonLabTask" |
-Format-List TaskName, State, TaskPath
-```
+```Get-Service Sysmon64```
 
 
-📸 Screenshot Required — Scheduled Task
+المفروض تظهر Running.
+Step 4 — Verify Active Configuration
+```.\Sysmon64.exe -c```
 
-خذي لقطة شاشة للنتيجة التي تظهر SysmonLabTask وحالتها Ready.
 
-عنوان الصورة:
-
-Verifying Scheduled Task Persistence
-
-بعد التصوير، احذفي المهمة التجريبية:
-```
-Unregister-ScheduledTask -TaskName "SysmonLabTask" -Confirm:$false
-```
+تأكدي أن Config file يشير إلى sysmonconfig.xml الجديد.
