@@ -29,3 +29,9 @@ Step 4 — Verify Active Configuration
 ```.\Sysmon64.exe -c```
 
 
+
+```
+cd "C:\Users\Administrator\Downloads\Sysmon"
+
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/olafhartong/sysmon-modular/master/sysmonconfig.xml" -OutFile ".\sysmonconfig.xml"
+```
