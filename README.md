@@ -24,3 +24,14 @@ Select-Object TimeCreated, Id, ProviderName |
 Format-Table -AutoSize
 
 ```
+
+
+```
+cd "$env:USERPROFILE\Downloads\Sysmon"
+
+Get-ChildItem
+
+.\Sysmon64.exe -accepteula -i
+
+Get-Service Sysmon64
+```
