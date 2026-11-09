@@ -44,15 +44,16 @@ Format-List TimeCreated, Id, Message
 ```
 $folder = "C:\Users\Administrator\Downloads\sysmon-modular-master\sysmon-modular-master"
 
-Get-ChildItem $folder -Recurse -Filter "*.xml" |
+Get-ChildItem "$folder\scripts" -Recurse -File |
 Where-Object {
-    try {
-        [xml]$x = Get-Content $_.FullName -Raw
-        $x.DocumentElement.LocalName -eq "Sysmon" -and
-        $null -ne $x.DocumentElement.SelectSingleNode("EventFiltering")
-    } catch {
-        $false
-    }
+    $_.Extension -in ".ps1", ".py", ".exe"
 } |
 Select-Object FullName
+
+
+cd "C:\Users\Administrator\Downloads\Sysmon"
+
+.\Sysmon64.exe -c |
+Select-Object -First 20
+
 ```
