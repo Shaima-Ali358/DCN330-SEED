@@ -44,16 +44,14 @@ Format-List TimeCreated, Id, Message
 ```
 $folder = "C:\Users\Administrator\Downloads\sysmon-modular-master\sysmon-modular-master"
 
-Get-ChildItem "$folder\scripts" -Recurse -File |
-Where-Object {
-    $_.Extension -in ".ps1", ".py", ".exe"
-} |
-Select-Object FullName
+cd "$folder\scripts"
+
+Get-Content ".\Merge-SysmonXml.ps1" -TotalCount 70
 
 
-cd "C:\Users\Administrator\Downloads\Sysmon"
+Get-Command ".\Merge-SysmonXml.ps1" -Syntax
 
-.\Sysmon64.exe -c |
-Select-Object -First 20
+
+
 
 ```
