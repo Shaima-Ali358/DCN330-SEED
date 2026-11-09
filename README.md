@@ -76,3 +76,36 @@ Select-Object TimeCreated, Id, ProviderName |
 Format-Table -AutoSize
 
 ```
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+
+```
+$root = "C:\Users\Administrator\Downloads\sysmon-modular-master\sysmon-modular-master"
+$sysmon = "C:\Users\Administrator\Downloads\Sysmon"
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+. "$root\scripts\Merge-SysmonXml.ps1"
+
+# Merge all Sysmon Modular rules
+$merged = Merge-AllSysmonXml -BasePath $root -AsString
+
+# Check that the result is not empty
+if ([string]::IsNullOrWhiteSpace($merged)) {
+    throw "Merge failed. No configuration was generated."
+}
+
+# Validate the XML
+[xml]$config = $merged
+
+if ($config.DocumentElement.LocalName -ne "Sysmon" -or
+    -not $config.DocumentElement.SelectSingleNode("EventFiltering")) {
+    throw "Invalid Sysmon configuration. No changes made."
+}
+
+# Save the configuration
+$output = Join-Path $sysmon "sysmonconfig.xml"
+$merged | Set-Content $output -Encoding UTF8
+
+Write-Host "XML created successfully: $output"
+```
