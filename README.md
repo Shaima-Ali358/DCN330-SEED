@@ -35,3 +35,21 @@ Get-ChildItem
 
 Get-Service Sysmon64
 ```
+/////////////////////////////////////
+
+
+
+```
+Get-Service -Name "*sysmon*" -ErrorAction SilentlyContinue
+
+Get-CimInstance Win32_SystemDriver |
+Where-Object { $_.Name -like "*Sysmon*" } |
+Select-Object Name, State, StartMode
+
+Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Sysmon*" -ErrorAction SilentlyContinue |
+Select-Object PSChildName, ImagePath
+
+Get-WinEvent -ListLog "Microsoft-Windows-Sysmon/Operational" -ErrorAction SilentlyContinue |
+Select-Object LogName, IsEnabled, RecordCount
+
+```
