@@ -51,7 +51,12 @@ Get-Content ".\Merge-SysmonXml.ps1" -TotalCount 70
 
 Get-Command ".\Merge-SysmonXml.ps1" -Syntax
 
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+Get-ExecutionPolicy -List
 
 
+Get-Command ".\Merge-SysmonXml.ps1" -Syntax
 
+Select-String -Path ".\Merge-SysmonXml.ps1" -Pattern "function |param\(|Export-ModuleMember" 
 ```
