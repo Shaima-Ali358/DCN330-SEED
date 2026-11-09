@@ -39,3 +39,20 @@ Select-Object -First 1 |
 Format-List TimeCreated, Id, Message
 
 ```
+
+
+```
+$folder = "C:\Users\Administrator\Downloads\sysmon-modular-master\sysmon-modular-master"
+
+Get-ChildItem $folder -Recurse -Filter "*.xml" |
+Where-Object {
+    try {
+        [xml]$x = Get-Content $_.FullName -Raw
+        $x.DocumentElement.LocalName -eq "Sysmon" -and
+        $null -ne $x.DocumentElement.SelectSingleNode("EventFiltering")
+    } catch {
+        $false
+    }
+} |
+Select-Object FullName
+```
