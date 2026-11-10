@@ -86,4 +86,45 @@ Format-List TimeCreated, Id, Message
 
 
 ```
+
+```
+# 1. Find Sysmon services
+Get-Service |
+Where-Object {
+    $_.Name -like "*Sysmon*" -or
+    $_.DisplayName -like "*Sysmon*"
+} |
+Format-Table Name, DisplayName, Status
+
+# 2. Check Sysmon drivers
+Get-CimInstance Win32_SystemDriver |
+Where-Object {
+    $_.Name -like "*Sysmon*"
+} |
+Select-Object Name, State, StartMode
+
+# 3. Check Sysmon configuration
+cd "C:\Users\labuser\Downloads\Sysmon"
+.\Sysmon64.exe -c
+
+# 4. Check Sysmon event log
+Get-WinEvent -ListLog "Microsoft-Windows-Sysmon/Operational" |
+Select-Object LogName, IsEnabled, RecordCount
+
+# 5. Generate a new process event
+Start-Process notepad.exe
+Start-Sleep -Seconds 5
+
+# 6. Find the Notepad event
+Get-WinEvent -FilterHashtable @{
+    LogName = "Microsoft-Windows-Sysmon/Operational"
+    Id = 1
+    StartTime = (Get-Date).AddMinutes(-10)
+} -ErrorAction SilentlyContinue |
+Where-Object {
+    $_.Message -match "notepad.exe"
+} |
+Select-Object -First 3 TimeCreated, Id, Message |
+Format-List
+```
 https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com
