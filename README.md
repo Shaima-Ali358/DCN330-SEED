@@ -136,4 +136,7 @@ Write-Host "Sysmon configuration applied successfully."
 # Check current configuration
 .\Sysmon64.exe -c
 
+
+
+https://raw.githubusercontent.com/olafhartong/sysmon-modular/master/sysmonconfig.xml?utm_source=chatgpt.com
 ```
