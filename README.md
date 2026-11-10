@@ -98,48 +98,34 @@ Select-Object -First 3 TimeCreated, Id, Message |
 Format-List
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
+$source = "C:\Users\Administrator\Downloads\Sysmon\sysmonconfig.xml"
 
-Get-ChildItem "$env:USERPROFILE\Downloads" -Recurse -Filter "Merge-SysmonXml.ps1" -ErrorAction SilentlyContinue |
-Select-Object FullName
+Test-Path $source
+
+Get-Item $source | Select-Object FullName, Length
+
+
 
 
 $sysmon = "$env:USERPROFILE\Downloads\Sysmon"
+$configPath = Join-Path $sysmon "sysmonconfig.xml"
 
-$script = Get-ChildItem "$env:USERPROFILE\Downloads" -Recurse -Filter "Merge-SysmonXml.ps1" -File -ErrorAction SilentlyContinue |
-Select-Object -First 1
-
-if (-not $script) {
-    throw "Merge-SysmonXml.ps1 not found. Download and extract Sysmon Modular first."
+# Check the file exists
+if (-not (Test-Path $configPath)) {
+    throw "XML file not found. Copy it from DC01 first."
 }
 
-$root = Split-Path $script.DirectoryName -Parent
-
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-
-. $script.FullName
-
-$merged = Merge-AllSysmonXml -BasePath $root -AsString
-
-if ([string]::IsNullOrWhiteSpace($merged)) {
-    throw "Merge failed."
-}
-
-[xml]$config = $merged
+# Validate the XML
+[xml]$config = Get-Content $configPath -Raw
 
 if ($config.DocumentElement.LocalName -ne "Sysmon" -or
     -not $config.DocumentElement.SelectSingleNode("EventFiltering")) {
     throw "Invalid XML configuration."
 }
 
-$output = Join-Path $sysmon "sysmonconfig.xml"
-
-$merged | Set-Content $output -Encoding UTF8
-
-Write-Host "XML created successfully: $output"
-
+# Apply configuration
 Set-Location $sysmon
-
-.\Sysmon64.exe -c $output
+.\Sysmon64.exe -c $configPath
 
 if ($LASTEXITCODE -ne 0) {
     throw "Sysmon configuration update failed."
@@ -147,9 +133,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Sysmon configuration applied successfully."
 
+# Check current configuration
+.\Sysmon64.exe -c
 
-.\Sysmon64.exe -c 2>&1 |
-Out-File "$env:TEMP\SysmonStatus.txt" -Width 250
-
-Get-Content "$env:TEMP\SysmonStatus.txt" -TotalCount 35
 ```
