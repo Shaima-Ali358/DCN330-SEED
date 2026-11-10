@@ -138,5 +138,5 @@ Write-Host "Sysmon configuration applied successfully."
 
 
 
-https://raw.githubusercontent.com/olafhartong/sysmon-modular/master/sysmonconfig.xml?utm_source=chatgpt.com
 ```
+https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com
