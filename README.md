@@ -96,4 +96,60 @@ Get-WinEvent -FilterHashtable @{
 } -ErrorAction SilentlyContinue |
 Select-Object -First 3 TimeCreated, Id, Message |
 Format-List
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+
+Get-ChildItem "$env:USERPROFILE\Downloads" -Recurse -Filter "Merge-SysmonXml.ps1" -ErrorAction SilentlyContinue |
+Select-Object FullName
+
+
+$sysmon = "$env:USERPROFILE\Downloads\Sysmon"
+
+$script = Get-ChildItem "$env:USERPROFILE\Downloads" -Recurse -Filter "Merge-SysmonXml.ps1" -File -ErrorAction SilentlyContinue |
+Select-Object -First 1
+
+if (-not $script) {
+    throw "Merge-SysmonXml.ps1 not found. Download and extract Sysmon Modular first."
+}
+
+$root = Split-Path $script.DirectoryName -Parent
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+. $script.FullName
+
+$merged = Merge-AllSysmonXml -BasePath $root -AsString
+
+if ([string]::IsNullOrWhiteSpace($merged)) {
+    throw "Merge failed."
+}
+
+[xml]$config = $merged
+
+if ($config.DocumentElement.LocalName -ne "Sysmon" -or
+    -not $config.DocumentElement.SelectSingleNode("EventFiltering")) {
+    throw "Invalid XML configuration."
+}
+
+$output = Join-Path $sysmon "sysmonconfig.xml"
+
+$merged | Set-Content $output -Encoding UTF8
+
+Write-Host "XML created successfully: $output"
+
+Set-Location $sysmon
+
+.\Sysmon64.exe -c $output
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Sysmon configuration update failed."
+}
+
+Write-Host "Sysmon configuration applied successfully."
+
+
+.\Sysmon64.exe -c 2>&1 |
+Out-File "$env:TEMP\SysmonStatus.txt" -Width 250
+
+Get-Content "$env:TEMP\SysmonStatus.txt" -TotalCount 35
 ```
