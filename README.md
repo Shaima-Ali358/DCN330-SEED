@@ -135,3 +135,7 @@ Test-Path "C:\Program Files\Splunk\bin\splunk.exe"
 & "C:\Program Files\Splunk\bin\splunk.exe" stop
 
 explorer "C:\Program Files\Splunk\etc\system\local"
+
+
+Get-ChildItem "C:\Program Files\Splunk\etc" -Filter "passwd" -Recurse -File -ErrorAction SilentlyContinue |
+Select-Object FullName
