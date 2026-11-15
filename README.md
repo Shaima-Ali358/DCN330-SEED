@@ -26,3 +26,7 @@ PASSWORD = SPR320Lab2026!
 https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com
 
 
+index=main sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+| stats count by host
+
+
