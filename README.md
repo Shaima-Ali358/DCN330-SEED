@@ -130,4 +130,8 @@ Format-List
 https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com
 
 
-& "C:\Program Files\SplunkUniversalForwarder\bin\splunk.exe" list forward-server
+Test-Path "C:\Program Files\Splunk\bin\splunk.exe"
+
+& "C:\Program Files\Splunk\bin\splunk.exe" stop
+
+explorer "C:\Program Files\Splunk\etc\system\local"
