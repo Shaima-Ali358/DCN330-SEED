@@ -128,3 +128,6 @@ Select-Object -First 3 TimeCreated, Id, Message |
 Format-List
 ```
 https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com
+
+
+& "C:\Program Files\SplunkUniversalForwarder\bin\splunk.exe" list forward-server
