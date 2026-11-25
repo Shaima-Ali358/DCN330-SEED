@@ -1,389 +1,417 @@
-تمام، بنبدأ على DC01 (Windows Server 2022) ونمشي بترتيب تعليمات الدكتور في SPR320 — Lab 2. ما راح ننتقل إلى Part 2 إلا بعد ما نخلص Part 1 ونتأكد إن Sysmon شغال.
-Part 1 — Event Viewer and Sysmon
-الهدف: نثبت Sysmon على DC01، نضبط الـConfiguration، وبعدها نتأكد إنه يسجل الأحداث في Event Viewer.
-Step 1 — Check Windows Event Viewer
-على DC01:
-1. سجلي دخول بحساب Administrator.
-2. اضغطي Win + R.
-3. اكتبي:
+بعطيك الأوامر دفعة واحدة، ومعها أوامر الـTroubleshooting، عشان إذا واجهتي مشكلة ما تحتاجين تنتظرين ردي بعد كل أمر.
+
+**مهم:** أوامر الـTroubleshooting تنفذينها فقط إذا واجهتي المشكلة المذكورة، مو كلها بشكل عشوائي.
+
+# **Part 1 — Environment Verification**
+
+## **1. Windows 11 — PowerShell (Administrator)**
+
+نفذي الأوامر التالية:
+
 ```
-eventvwr.msc
+Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber
+
+hostname
+
+whoami
+
+ipconfig /all
+
+Get-NetAdapter
+
+Get-NetIPAddress -AddressFamily IPv4
+
+Get-Service -Name "Sysmon*" -ErrorAction SilentlyContinue
+
+Get-Service -Name AppIDSvc
+
+Get-LocalUser
 ```
 
-4. افتحي Windows Logs > Security.
-5. تأكدي إن الأحداث موجودة.
-Screenshot 1 — Windows Security Event Logs
+هذه الأوامر بتوضح لنا إصدار الويندوز، والـIP، والمستخدمين الموجودين، وحالة Sysmon وAppLocker.
 
-صوري نافذة Event Viewer مع ظهور الأحداث.
-Step 2 — Check Sysmon
-افتحي PowerShell as Administrator ونفذي الأوامر التالية:
+📷 صوري النتائج للتحقق فقط، مو شرط نحطها بالتقرير.
+
+## **2. Kali Linux — Terminal**
+
 ```
 hostname
+whoami
+ip -br a
+ip route
 ```
 
-المفروض يظهر DC01.
+للتحقق من الأدوات الموجودة:
+
 ```
-Get-Service *sysmon*
+which msfconsole
+which msfvenom
+which python3
+which git
+which curl
+which php
 ```
 
-إذا ظهر Running، فـSysmon مثبت. إذا ما ظهرت خدمة، نكمل التثبيت.
+ولمعرفة المساحة المتوفرة:
 
-وللتأكد من نسخة Windows:
 ```
-Get-ComputerInfo | Select-Object WindowsProductName, OsVersion
-```
-
-Step 3 — Download Sysmon
-في PowerShell كـAdministrator:
-```
-New-Item -Path C:\Tools -ItemType Directory -Force
+df -h
 ```
 
-بعدها:
+## **3. Test Network Connectivity**
+
+من Kali:
+
 ```
-Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile "C:\Tools\Sysmon.zip"
+ping -c 4 WINDOWS_IP
 ```
 
-ثم فكّي الضغط:
+من Windows PowerShell:
+
 ```
-Expand-Archive -Path "C:\Tools\Sysmon.zip" -DestinationPath "C:\Tools\Sysmon" -Force
+ping KALI_IP
 ```
 
-تأكدي من الملفات:
-```
-Get-ChildItem C:\Tools\Sysmon
-```
+استبدلي `WINDOWS_IP` و`KALI_IP` بالعناوين الفعلية للأجهزة على شبكة `SPR320-LAB`، وليس عناوين NAT.
 
-لازم تشوفين ملف Sysmon64.exe ضمن الملفات.
-Step 4 — Download SwiftOnSecurity Configuration
-هذا ملف Configuration من المصادر اللي ذكرها الدكتور. بنستخدمه كبداية على DC01، وبعدها نتعرف على Olaf Hartong ونقارن الإعدادات.
-```
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" -OutFile "C:\Tools\Sysmon\sysmonconfig-export.xml"
-```
+### **Troubleshooting — Network**
 
-تأكدي:
+إذا الاتصال ما اشتغل، نفذي على Windows:
+
 ```
-Test-Path "C:\Tools\Sysmon\sysmonconfig-export.xml"
+Get-NetAdapter
+Get-NetIPConfiguration
+Get-NetConnectionProfile
+Get-NetFirewallProfile
+route print
+arp -a
 ```
 
-المفروض يظهر:
-True
+وعلى Kali:
 
-
-Step 5 — Install Sysmon
-نفذي هذا فقط إذا Step 2 أكد أن Sysmon غير مثبت.
 ```
-cd C:\Tools\Sysmon
-```
-
-ثم:
-```
-.\Sysmon64.exe -accepteula -i .\sysmonconfig-export.xml
+ip link
+ip -br a
+ip route
+ip neigh
 ```
 
-إذا نجح، المفروض تشوفين رسالة تثبيت ناجح، مثل:
+عدم نجاح الـPing ما يعني بالضرورة أن الشبكة ما تشتغل، ممكن Windows Firewall يمنع ICMP.
 
-Sysmon64 installed.
-SysmonDrv installed.
-Sysmon64 started.
+# **Part 2 — Sysmon Installation and Configuration**
 
+**جميع الأوامر التالية على Windows 11 باستخدام PowerShell as Administrator.**
 
-قد تختلف الرسائل حسب إصدار Sysmon.
-Screenshot 2 — Sysmon Installation
+## **1. Download Sysmon**
 
-صوري PowerShell بعد ظهور نتيجة التثبيت الناجح.
+إذا Sysmon مو مثبت عندك، نفذي:
 
-إذا ظهر خطأ Configuration أو Schema، وقفي هنا وأرسلي الخطأ قبل ما نغير أي إعدادات.
-Step 6 — Verify Sysmon
-نفذي:
 ```
-Get-Service *sysmon*
+New-Item -ItemType Directory -Path C:\Tools\Sysmon -Force
+
+Set-Location C:\Tools\Sysmon
+
+Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile Sysmon.zip
+
+Expand-Archive -Path Sysmon.zip -DestinationPath . -Force
+
+Get-ChildItem
 ```
 
-وبعدها:
+## **2. Download SwiftOnSecurity Configuration**
+
+هذا ملف الـConfiguration المستخدم في شرح الدكتور.
+
 ```
+Set-Location C:\Tools\Sysmon
+
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" -OutFile sysmonconfig.xml
+```
+
+للتحقق من الملف:
+
+```
+Get-Item .\sysmonconfig.xml
+
+Get-Content .\sysmonconfig.xml -TotalCount 40
+```
+
+📸 **Required Screenshot #2**
+
+صوري الملفات الموجودة داخل `C:\Tools\Sysmon` ومحتوى الـConfiguration.
+
+**عنوان الصورة:**\
+`Sysmon Files and SwiftOnSecurity Configuration`
+
+## **3. Install Sysmon**
+
+إذا Sysmon غير مثبت:
+
+```
+.\Sysmon64.exe -accepteula -i .\sysmonconfig.xml
+```
+
+أما إذا كان مثبتًا من اللاب السابق، استخدمي تحديث الـConfiguration بدل إعادة التثبيت:
+
+```
+.\Sysmon64.exe -c .\sysmonconfig.xml
+```
+
+لا تنفذين الأمرين إلا حسب حالة التثبيت.
+
+📸 **Required Screenshot #3**
+
+صوري نتيجة التثبيت أو تحديث الـConfiguration.
+
+**عنوان الصورة:**\
+`Sysmon Installation and Configuration`
+
+## **4. Verify Sysmon**
+
+```
+Get-Service -Name "Sysmon*"
+
 .\Sysmon64.exe -c
 ```
 
-الأول يفحص الخدمة، والثاني يعرض معلومات الـConfiguration الحالي.
+ثم:
 
-ثم افتحي Event Viewer:
+```
+Get-WinEvent -ListLog "*Sysmon*"
+```
+
+ولعرض آخر الأحداث:
+
+```
+Get-WinEvent -LogName "Microsoft-Windows-Sysmon/Operational" -MaxEvents 10 | Format-Table TimeCreated, Id, Message -Wrap
+```
+
+## **5. Open Event Viewer**
+
 ```
 eventvwr.msc
 ```
+
+روحي للمسار التالي:
+
+&#x20;Applications and Services Logs
+
+&#x20;Microsoft
+
+&#x20;Windows
+
+&#x20;Sysmon
+
+&#x20;**Operational**
+
+📸 **Required Screenshot #4**
+
+صوري Sysmon Operational Log وفيه الأحداث المسجلة.
+
+**عنوان الصورة:**\
+`Sysmon Operational Event Logs`
+
+## **Troubleshooting — Sysmon**
+
+| المشكلة                         | الأمر المناسب                                            |
+| ------------------------------- | -------------------------------------------------------- |
+| التأكد من وجود الملفات          | `Get-ChildItem C:\Tools\Sysmon`                          |
+| التأكد من الخدمة                | `Get-Service -Name "Sysmon*"`                            |
+| التحقق من الإنترنت              | `Test-NetConnection download.sysinternals.com -Port 443` |
+| التحقق من DNS                   | `Resolve-DnsName download.sysinternals.com`              |
+| التحقق من صلاحيات Administrator | `whoami /groups`                                         |
+| معرفة إعدادات Sysmon الحالية    | `.\Sysmon64.exe -c`                                      |
+| التحقق من XML                   | `[xml](Get-Content .\sysmonconfig.xml -Raw)`             |
+
+إذا الخدمة موجودة لكنها متوقفة:
+
+```
+Get-Service -Name "Sysmon*" | Start-Service
+```
+
+إذا ظهر خطأ في توافق الـConfiguration:
+
+```
+.\Sysmon64.exe -s
+```
+
+هذا يعرض الـSchema المدعوم.
+
+# **Part 3 — AppLocker Preparation**
+
+حالياً نتحقق من جاهزية AppLocker، لكن **لا تفعلين قواعد الحظر قبل توثيق اختبار التنفيذ الأول**، لأن الدكتور يطلب مقارنة النتائج قبل وبعد.
+
+## **1. Verify AppLocker**
+
+على Windows PowerShell:
+
+```
+Get-Command *AppLocker*
+
+Get-Service AppIDSvc
+
+Get-AppLockerPolicy -Local
+
+Get-AppLockerPolicy -Effective
+```
+
+لفتح Local Security Policy:
+
+```
+secpol.msc
+```
+
+[How to restrict command line CMD from users that are not admins or to a specific list of users - Microsoft Q&A](https://images.openai.com/static-rsc-4/OjpsesxSTTcb32LoLcwD8PUtHN0q7GU1CE9DbRwlob5o6IG9BFjmYGIRFgXsmsEPuz7srlVThJ6q4gOUnhvkV3MkZW0pkzu9fBs95E_bsnzqb8IQ1QIo__G8qBgWJxgQHXgQ40Mvg51tiCg5TFu43vWKJkHnJ6-1xSNqyVmQcRM?purpose=inline)
 
 روحي إلى:
 
-Applications and Services Logs > Microsoft > Windows > Sysmon > Operational
-Screenshot 3 — Sysmon Operational Logs
+Security Settings → Application Control Policies → AppLocker
 
-صوري الأحداث الظاهرة، ويفضل تختارين Event ID 1 إذا كان موجوداً.
-Step 7 — Test Sysmon
-افتحي PowerShell ونفذي:
-Start-Process notepad.exe
+تأكدي أن الخيارات موجودة، لكن لا تنشئين القواعد للحين.
 
+## **2. AppLocker Troubleshooting Commands**
 
-بعدها:
+هذه الأوامر بنحتاجها لاحقًا عند تطبيق القواعد.
+
+لتشغيل الخدمة:
+
 ```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 1
-} -MaxEvents 10 | Format-List TimeCreated, Id, Message
+Start-Service AppIDSvc
 ```
 
-دوري في النتائج على notepad.exe.
+للتحقق منها:
 
-هذا يثبت أن Sysmon سجل تشغيل برنامج جديد.
-Screenshot 4 — Sysmon Event ID 1 (Process Creation)
-
-صوري الحدث بحيث يظهر اسم notepad.exe وEvent ID 1.
-
-Part 1 — متابعة الإنجاز
-DC01 Progress
-
-0 / 7
-
-
-انسخي الأوامر:
 ```
-cd "C:\Users\Administrator\Downloads\Sysmon"
-
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" -OutFile ".\sysmonconfig-export.xml"
-
-Test-Path ".\sysmonconfig-export.xml"
+Get-Service AppIDSvc
 ```
 
-المفروض آخر أمر يعطيك:
-True
+لتطبيق السياسات:
 
-
-Step 2 — Apply Configuration
 ```
-.\Sysmon64.exe -c .\sysmonconfig-export.xml
+gpupdate /force
 ```
 
-إذا ظهر Configuration updated أو رسالة نجاح مشابهة، كملي.
-Screenshot 1 — Updating Sysmon Configuration
+للتحقق من السياسات الفعلية:
 
-صوري نتيجة الأمر بعد نجاح التحديث.
-
-إذا ظهر Error أو Configuration validation failed، وقفي وأرسلي لي الخطأ.
-Step 3 — Verify Sysmon Configuration
 ```
-.\Sysmon64.exe -c
+Get-AppLockerPolicy -Effective -Xml
 ```
 
-ثم:
-```
-Get-Service Sysmon64
-```
+لعرض سجلات AppLocker:
 
-المفروض تشوفين Running للخدمة، ومعلومات الـConfiguration الحالي.
-Screenshot 2 — Verifying Sysmon Configuration
-
-صوري نتيجة الأمرين.
-Step 4 — Open Windows Event Viewer
 ```
-eventvwr.msc
+Get-WinEvent -ListLog "*AppLocker*"
 ```
 
-من القائمة اليسار افتحي:
+لعرض آخر أحداث Executable Rules:
 
-Applications and Services Logs > Microsoft > Windows > Sysmon > Operational
+```
+Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" -MaxEvents 20 | Format-List TimeCreated, Id, Message
+```
 
-المفروض تشوفين قائمة Events.
-Screenshot 3 — Sysmon Operational Logs
+أهم Event IDs اللي بنبحث عنها:
 
-صوري Event Viewer مع ظهور الأحداث.
-Step 5 — Generate Process Creation Event
-الحين بنولد حدث بسيط عشان نتأكد إن Sysmon يسجل تشغيل البرامج.
+| Event ID | Meaning                                    |
+| -------- | ------------------------------------------ |
+| 8002     | Application allowed                        |
+| 8003     | Application would be blocked in audit mode |
+| 8004     | Application blocked                        |
 
-في PowerShell:
+# **Part 4 — Additional Sysmon Tests**
+
+هذه الأوامر بنستخدمها لاحقًا لمحاكاة أنشطة ومراقبتها باستخدام Sysmon.
+
+## **Test 1 — Process Creation**
+
 ```
 Start-Process notepad.exe
 ```
 
-بعدها:
-```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 1
-} -MaxEvents 20 | Format-List TimeCreated, Id, Message
+عرض Event ID 1:
 
 ```
-ابحثي عن notepad.exe في النتائج.
-
-Event ID 1 = Process Creation
-Screenshot 4 — Process Creation (Event ID 1)
-
-صوري الحدث الذي يظهر فيه notepad.exe.
-Step 6 — Generate File Creation Event
-بننشئ ملف داخل مجلد مؤقت على DC01:
-```
-New-Item -Path "C:\SysmonTest" -ItemType Directory -Force
+Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Sysmon/Operational"; ID=1} -MaxEvents 10 | Format-List TimeCreated, Id, Message
 ```
 
-ثم:
-```
-Set-Content -Path "C:\SysmonTest\test.txt" -Value "Sysmon Lab 2 Test"
-```
-
-افحصي Event ID 11:
-```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 11
-} -MaxEvents 30 | Where-Object {
-    $_.Message -like '*SysmonTest*'
-} | Format-List TimeCreated, Id, Message
-```
-
-Event ID 11 = File Create
-
-إذا ما ظهر الحدث، مو بالضرورة فيه مشكلة؛ ممكن ملف الـConfiguration يستبعد هذا النوع من الملفات أو المسارات.
-Screenshot 5 — File Creation (Event ID 11)
-
-صوري الحدث إذا ظهر.
-Step 7 — Generate Registry Event
-بنسوي Registry Key تجريبي، بدون تعديل إعدادات النظام الحساسة.
-```
-New-Item -Path "HKCU:\Software\SysmonLab2" -Force
-```
-
-ثم:
-```
-New-ItemProperty -Path "HKCU:\Software\SysmonLab2" -Name "LabTest" -Value "SPR320" -PropertyType String -Force
-```
-
-افحصي Event IDs الخاصة بالـRegistry:
-```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 12,13,14
-} -MaxEvents 50 | Where-Object {
-    $_.Message -like '*SysmonLab2*'
-} | Format-List TimeCreated, Id, Message
-```
+## **Test 2 — File Creation**
 
 ```
-Event IDs 12–14 = Registry Changes
-```
-إذا ما ظهر شيء، ممكن قواعد SwiftOnSecurity ما تسجل هذا المسار التجريبي.
+New-Item -ItemType Directory -Path C:\Lab3 -Force
 
-Screenshot 6 — Registry Activity
-
-صوري الحدث إذا ظهر.
-Step 8 — Check DNS and Network Events
-نفذي:
-```
-Resolve-DnsName example.com
+Set-Content -Path C:\Lab3\TestFile.txt -Value "SPR320 Sysmon File Creation Test"
 ```
 
-ثم افحصي Event ID 22:
+عرض Event ID 11:
+
 ```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 22
-} -MaxEvents 20 | Format-List TimeCreated, Id, Message
+Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Sysmon/Operational"; ID=11} -MaxEvents 10 | Format-List TimeCreated, Id, Message
 ```
 
-Event ID 22 = DNS Query
+## **Test 3 — Registry Modification**
 
-بعدها افحصي Network Connections:
 ```
-Get-WinEvent -FilterHashtable @{
-    LogName = 'Microsoft-Windows-Sysmon/Operational'
-    Id = 3
-} -MaxEvents 20 | Format-List TimeCreated, Id, Message
+New-Item -Path "HKCU:\Software\SPR320Lab3" -Force
+
+New-ItemProperty -Path "HKCU:\Software\SPR320Lab3" -Name "TestValue" -Value "Sysmon Registry Test" -PropertyType String -Force
 ```
 
-Event ID 3 = Network Connection
+عرض Registry Events:
 
-قد لا يظهر Event ID 3 إذا كان معطلاً أو مستبعداً في الـConfiguration. كذلك نجاح DNS Query يعتمد على اتصال DNS المتاح في بيئة المختبر.
-Screenshot 7 — DNS and Network Events
-
-صوري النتائج إذا ظهرت.
-Step 9 — Final Verification
-آخر شيء نفذي
-
-1) أهم تعديل: إصدار الـSchema (Step 2)
-
-ملف SwiftOnSecurity قديم نسبياً (Schema 4.50 تقريباً). مع Sysmon 15.22 غالباً بيشتغل، لكن إذا رفضه أو ظهرت تحذيرات، استخدمي Olaf Hartong. وهو مطلوب منك أصلاً في اللاب (“Olaf Hartong configuration”). ملاحظة مهمة: الـREADME يقول إن الإصدارات المبنية جاهزة لـSysmon 15.21 وما دون، وإصدارك 15.22، فاختاري الملف 15.21 (هو الافتراضي sysmonconfig.xml). وبما أن الـSchema مستقل عن إصدار الـbinary، المفروض يشتغل.
-
-الأفضل تطبقين الاثنين وتقارنين بينهم في التقرير، لأن الدكتور قال “You should be familiar with both”.
-
-الرابط من صفحة الـReleases (تحتاجين تتأكدين من الاسم الفعلي للملف هناك):
-
-powershell
-# افتحي https://github.com/olafhartong/sysmon-modular/releases
-# نزلي sysmonconfig.xml (الـBalanced، النسخة 15.21)
-
-ثم:
-
-powershell
-```.\Sysmon64.exe -c .\sysmonconfig.xml```
-2) تحقق قبل التطبيق (Step 1)
-
-أضيفي هذا بعد Test-Path للتأكد أن الملف XML سليم وما هو صفحة خطأ HTML:
-
-powershell
-```(Get-Item .\sysmonconfig-export.xml).Length```
-```Get-Content .\sysmonconfig-export.xml -TotalCount 5```
-
-المفروض يبدأ بـ <Sysmon schemaversion=.
-
-3) Event ID 3 غالباً ما بيظهر مع SwiftOnSecurity
-
-الـConfiguration حقه يسجل الشبكة بشكل انتقائي (بورتات وبرامج معينة). فاختبار Resolve-DnsName ما بيولد Event 3 بالضرورة. الأفضل تولدينه بشكل مضمون:
-
-powershell
-```Test-NetConnection -ComputerName 192.168.56.11 -Port 445```
-
-أو من DC01 افتحي اتصال إلى CLIENT01. وإذا ما ظهر، هذا نفسه يصير ملاحظة في التقرير (سببه الـConfiguration).
-
-4) ناقص: اختبار John Strand (مطلوب في Part 2)
-
-الاختبار الأساسي بالمهمة هو لاب Sysmon من IntroLabs (Part 2). خطواتك الحالية تغطي اختبارات Google AI بس. وللعلم هذا اللاب يحتاج Metasploit/Kali، فنفذيه لاحقاً بعد ما تخلصين الإعداد على الأجهزة الثلاثة.
-
-5) ناقص: اختبارات الـPersistence
-
-مطلوبة صراحة في اللاب، وما هي في خطواتك:
-
-powershell
-# Run Key (Event 13)
-```New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "FakeMalwarePersistence" -Value "C:\Windows\System32\calc.exe" -PropertyType String```
-
-# Scheduled Task (Event 1 + 11)
-```Register-ScheduledTask -TaskName "Suspicious_Update_Task" -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Action (New-ScheduledTaskAction -Execute "notepad.exe") -Description "Simulated Persistence"```
-
-وبعد ما تصورين، نظفي:
 ```
-powershell
-Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "FakeMalwarePersistence"
-Unregister-ScheduledTask -TaskName "Suspicious_Update_Task" -Confirm:$false
+Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Sysmon/Operational"; ID=12,13} -MaxEvents 10 | Format-List TimeCreated, Id, Message
 ```
-6) ناقص: Event 5 و Event 8 و Event 22 (ملف الدكتور)
-Event 5 (Process Terminate): Stop-Process -Name notepad. لكن SwiftOnSecurity غالباً ما يسجله، والأرجح ما يظهر.
-Event 8: ملف اللاب نفسه يقول يحتاج أدوات خاصة، فاعتبريه اختياري.
-Event 22: ملاحظة الدكتور أن الاستعلام ما يحتاج ينجح. جربي``` nslookup super-suspicious-cnc-server.com بالإضافة لـexample.com.```
-7) ناقص: تصدير CSV وفحص Event Viewer العادي
 
-اللاب يتطلب سكربت التصدير إلى CSV وتجربة الـRegistry/Task parsers. أيضاً “Windows Event Viewer showing Security Logs” بـScreenshot 1 في خطتك، لكن ما كتبتي خطوة لها في الرد. أضيفيها (Windows Logs > Security).
+## **Test 4 — Network Connection**
 
-8) تنبيه عن Sysmon + DC01
+على Kali نشغل HTTP Server داخل مجلد تجريبي فارغ:
 
-على الـDomain Controller غالباً بيطلع ضجيج كثير. بعد التطبيق راقبي حجم الـLog (Properties على Operational) وزيدي الحجم الأقصى لو احتجتي.
+```
+mkdir -p ~/lab3-http
+cd ~/lab3-http
+echo "SPR320 Network Test" > index.html
+python3 -m http.server 8080 --bind KALI_IP
+```
 
-ملخص
-الخطوة	الحالة
-تحميل وتطبيق Configuration	صحيحة + أضيفي فحص XML
-Event 1, 11, 12-14, 22	صحيحة
-Event 3	تحتاج أمر مضمون
-Olaf Hartong	ناقصة (مطلوبة)
-Persistence	ناقصة (مطلوبة)
-CSV export	ناقصة (مطلوبة)
-John Strand lab	ناقصة (لاحقاً)
+وعلى Windows:
 
-نفذي Step 1 و 2 وأرسلي لي النتيجة (أو الخطأ) لو ظهر شي
+```
+curl.exe http://KALI_IP:8080
+```
 
-https://github.com/SwiftOnSecurity/sysmon-config/blob/master/sysmonconfig-export.xml?utm_source=chatgpt.com.
+عرض Event ID 3:
+
+```
+Get-WinEvent -FilterHashtable @{LogName="Microsoft-Windows-Sysmon/Operational"; ID=3} -MaxEvents 10 | Format-List TimeCreated, Id, Message
+```
+
+**ملاحظة:** مو مضمون أن كل هذه الأنشطة تظهر مع SwiftOnSecurity Configuration، لأن الملف يستخدم Filters. إذا ما ظهر حدث معين، نراجع الـConfiguration ونعدله حسب الاختبار. هذه اختبارات محاكاة لأنشطة مرتبطة بالهجمات، وليست هجمات فعلية بحد ذاتها.
+
+# **وش تنفذين الحين بالضبط؟**
+
+**Current Progress**
+
+1 / 9
+
+Snapshot — تم حسب كلامك
+
+Part 1 — Windows verification
+
+Part 1 — Kali verification
+
+Part 1 — Network connectivity
+
+Part 2 — Download Sysmon
+
+Part 2 — Download configuration
+
+Part 2 — Install or update Sysmon
+
+Part 2 — Verify Event Viewer
+
+Part 3 — Verify AppLocker availability
+
+نفذي Part 1 وPart 2 والتحقق الأولي من AppLocker فقط الآن. بعدها أرسلي النتائج دفعة واحدة.
+
+**الوقت المتوقع: 15–25 دقيقة.**
+
+بعدها نعطل NAT ونكمل الاختبارات على الشبكة الداخلية. ما أدرجت أوامر إنشاء الـBackdoor أو التقاط بيانات الدخول باستخدام Zphisher بسبب القيود اللي وضحتها لك سابقًا، وباقي إعداد قواعد AppLocker بنسويه بعد توثيق اختبار التنفيذ الأول حتى نحافظ على ترتيب اللاب المطلوب من الدكتور.
